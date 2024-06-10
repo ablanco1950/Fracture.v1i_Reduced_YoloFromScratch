@@ -29,7 +29,7 @@ TESTyolovFromScratch_kaggle.py modifying the name of the model that appears in i
 
 The model that gives the best results may be  retained.
 
-The test is done with the 9 records of the test file (directory testFractureOJumbo1) obtaining 7 hits out of 9. Better than the project https://github.com/ablanco1950/Fracture.v1i_Reduced_Yolov10 (6 hits in 9 images) but worse than https://universe.roboflow.com/landy-aw2jb/fracture-ov5p1/model/1 (8 hits in 9 images).
+The test is done with the 9 images of the test file (directory testFractureOJumbo1) obtaining 7 hits out of 9. Better than the project https://github.com/ablanco1950/Fracture.v1i_Reduced_Yolov10 (6 hits in 9 images) but worse than https://universe.roboflow.com/landy-aw2jb/fracture-ov5p1/model/1 (8 hits in 9 images).
 
 Furthermore, many models are complementary, so the result can be improved with a combination of models.
 
@@ -57,3 +57,5 @@ https://universe.roboflow.com/landy-aw2jb/fracture-ov5p1/dataset/1
                             note = { visited on 2024-06-09 },
                             }
 
+https://github.com/ablanco1950/Fracture.v1i_Reduced_Yolov10
+https://universe.roboflow.com/landy-aw2jb/fracture-ov5p1/model/1 
