@@ -8,6 +8,8 @@ By using only 147 images, training is allowed using a personal computer without 
 ===
 Installation:
 
+The packages used are the usual ones in a development environment with python. In case a module not found error appears, it will be enough to install it with a simple pip
+
 To download the dataset you have to register as a roboflow user, but to simplify it, the compressed files for train, valid and test are attached: trainFractureOJumbo1.zip, validFractureOJumbo1.zip and testFractureOJumbo1.zip obtained by selecting the images that start with names 0 -_Jumbo-1 of the original file obtaining a reduced number of images that allow training with  a personal computer without GPU
 
 Some zip decompressors duplicate the name of the folder to be decompressed; a folder that contains another folder with the same name should only contain one. In these cases it will be enough to cut the innermost folder and copy it to the project folder.
