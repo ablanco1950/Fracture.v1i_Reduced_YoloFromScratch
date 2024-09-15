@@ -1,6 +1,6 @@
 # Fracture.v1i_Reduced_YoloFromScratch
 From a selection of data from the Roboflow file https://universe.roboflow.com/landy-aw2jb/fracture-ov5p1/dataset/1, which represents a reduced but homogeneous version of that file, a model is obtained using  an adaptation of an old version of the project https://www.kaggle.com/code/nyachhyonjinu/yolov3-test , that is the same as
- https://github.com/mahdi-darvish/YOLOv3-from-Scratch-Analaysis-and-Implementation instead any yolo model 
+ https://github.com/mahdi-darvish/YOLOv3-from-Scratch-Analaysis-and-Implementation, instead any yolo model 
 
 The project: https://www.kaggle.com/code/nyachhyonjinu/yolov3-test produce   a yolov3 from scratch training with COCO dataset. Here is adapted so the training is  with the reduced roboflow dataset, getting a model with that custom dataset
 
