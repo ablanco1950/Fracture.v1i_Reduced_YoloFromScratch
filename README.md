@@ -24,19 +24,25 @@ TRAINyolovFromScratch_kaggle.py
 
 A log with its execution in 50 epochs is attached: LOG_YolovFromScratch_50epoch.txt
 
-every 2 epoch a model is written to the /kaggle/working/ directory with the name Yolov3_epochNN.pth where NN is the epoch number.
+every 2 epoch a model is written to the name directory with the name Yolov3_epochNN.pth where NN is the epoch number.
 
-Models from epoch 30 to 40 can be evaluated by running the program:
+Models  can be evaluated by running the program:
 
-TESTyolovFromScratch_kaggle.py modifying the name of the model that appears in instruction 847 according to the epoch to be considered.
+TESTyolovFromScratch_kaggle.py modifying the name of the model that appears in instruction 666 according to the epoch to be considered.
 
 The model that gives the best results may be  retained.
 
-The test is done with the 9 images of the test file (directory testFractureOJumbo1) obtaining 7 hits out of 9. Better than the project https://github.com/ablanco1950/Fracture.v1i_Reduced_Yolov10 (6 hits in 9 images) but worse than https://universe.roboflow.com/landy-aw2jb/fracture-ov5p1/model/1 (8 hits in 9 images).
+The test was done with the 9 images of the test file (directory testFractureOJumbo1) obtaining 7 hits out of 9. Better than the project https://github.com/ablanco1950/Fracture.v1i_Reduced_Yolov10 (6 hits in 9 images) but worse than https://universe.roboflow.com/landy-aw2jb/fracture-ov5p1/model/1 (8 hits in 9 images).
 
 Furthermore, many models are complementary, so the result can be improved with a combination of models.
 
 When you run this test, the x-ray image appears with a green rectangle indicating the rectangle with which the image was labeled and in blue with the predicted rectangle.
+
+#Comments and conclusions:
+
+In the inference program, TESTyolovFromScratch_kaggle.py,  the non-max.suppression has been eliminated, instead the one with the highest probability has been chosen from all the boxes. In addition, only the first 3 anchors of scale 1 have been considered, since it has been proven that in practice, in this case, they do not provide improvements.
+
+In any case, by activating instructions 715 to 931 (removing the “”” from both lines) it can be verified by performing a detection with all the anchors and the non-max-suppression,
 
 ===
 References and citations:
