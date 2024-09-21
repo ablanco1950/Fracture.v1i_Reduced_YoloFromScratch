@@ -51,6 +51,7 @@ https://github.com/mahdi-darvish/YOLOv3-from-Scratch-Analaysis-and-Implementatio
 
 https://www.kaggle.com/code/nyachhyonjinu/yolov3-test
 
+https://medium.com/analytics-vidhya/iou-intersection-over-union-705a39e7acef
 
 https://universe.roboflow.com/landy-aw2jb/fracture-ov5p1/dataset/1
 
