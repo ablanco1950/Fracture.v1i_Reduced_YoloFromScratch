@@ -22,9 +22,11 @@ execute
 
 TRAINyolovFromScratch_kaggle.py 
 
-A log with its execution in 50 epochs is attached: LOG_YolovFromScratch_50epoch.txt
+A log with its execution in 50 epochs is attached: LOG_YolovFromScratch_50epoch.txt, and graph LossEpoch20240920.png showing the evolution of loss with epochs.
 
-every 2 epoch a model is written to the name directory with the name Yolov3_epochNN.pth where NN is the epoch number.
+every 2 epoch a model is written to the project directory with the name Yolov3_epochNN.pth where NN is the epoch number. 
+
+Due to their large size, over 240 MB, it has not been possible to upload some verification models to github
 
 Models  can be evaluated by running the program:
 
