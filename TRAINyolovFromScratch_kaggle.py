@@ -1,4 +1,6 @@
-# Copied from https://www.kaggle.com/code/nyachhyonjinu/yolov3-test
+# from  https://www.kaggle.com/code/nyachhyonjinu/yolov3-test
+# and
+# https://github.com/mahdi-darvish/YOLOv3-from-Scratch-Analaysis-and-Implementation
 # Modified by Alfonso Blanco
 
 
@@ -8,9 +10,10 @@ import matplotlib.patches as patches
 import numpy as np
 import os
 
+import tensorflow as tf
+
 import torch
 
-from collections import Counter
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -110,6 +113,9 @@ class ScalePrediction(nn.Module):
         .permute(0, 1, 3, 4, 2) # [batch_size, anchor_boxes, grid_h, grid_w, prediction(25)]
       )
 
+# UNA EXPLICACION CLARA DE YOLO EN LA PRIMERA IMAGEN DE
+# ESTE ARTICULO
+# https://medium.com/@chnwsw01/yolo-algorithm-c779b9b2018b
 
 class YOLOv3(nn.Module):
   def __init__(self, in_channels=3, num_classes=20):
@@ -180,7 +186,8 @@ class_list=["Fracture"]
 
 IMAGE_SIZE = 640
 model = YOLOv3(num_classes=num_classes)
-x = torch.randn((2, 3, IMAGE_SIZE, IMAGE_SIZE))
+#x = torch.randn((2, 3, IMAGE_SIZE, IMAGE_SIZE)) # modified
+x = torch.zeros((2, 3, IMAGE_SIZE, IMAGE_SIZE))
 out = model(x)
 assert model(x)[0].shape == (2, 3, IMAGE_SIZE//32, IMAGE_SIZE//32, num_classes + 5)
 assert model(x)[1].shape == (2, 3, IMAGE_SIZE//16, IMAGE_SIZE//16, num_classes + 5)
@@ -192,7 +199,7 @@ print(model(x)[0].shape)
 print(model(x)[1].shape)
 print(model(x)[2].shape)
 
-print(model)
+#print(model)
 
 # Count the total trainable parameters
 total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -205,7 +212,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 NUM_WORKERS = 4
 #BATCH_SIZE = 32
-BATCH_SIZE = 3 # in the process only 3 registers are treated, has no sense a batch > 3
+BATCH_SIZE = 3 
 IMAGE_SIZE = 640
 #NUM_CLASSES = 20
 NUM_CLASSES = 1
@@ -213,7 +220,7 @@ NUM_CLASSES = 1
 #LEARNING_RATE = 1e-2
 LEARNING_RATE = 1e-4
 #NUM_EPOCHS = 80
-NUM_EPOCHS = 50
+NUM_EPOCHS = 20
 CONF_THRESHOLD = 0.8
 MAP_IOU_THRESH = 0.5
 NMS_IOU_THRESH = 0.45
@@ -239,6 +246,12 @@ PASCAL_CLASSES = [
 ]
 
 
+# A CLEARER WAY WOULD BE IN THIS DIRECTION
+# https://medium.com/analytics-vidhya/iou-intersection-over-union-705a39e7acef
+# COMPARING THE W H OF THE LABEL WITH EACH ANCHOR BUT IT WOULD HAVE TO BE DONE BY COMPARING
+# ONE BY ONE, HERE IT DOES IT IN A BLOCK AND IT IS MORE CONFUSING. Although using multiplication
+# of matrices (tensors) it will be faster
+
 # IOU width height
 # Take in hxw of anchor boxe and bounding box to calc. IOU
 
@@ -250,12 +263,42 @@ def iou_width_height(boxes1, boxes2):
     Returns:
         tensor: Intersection over union of the corresponding boxes
     """
+    """
+   tensor([0.0656, 0.0562]) --> alto y ancho  del label del registro del dataset del train
+   tensor([[0.2800, 0.2200],  --> anchors
+        [0.3800, 0.4800],
+        [0.9000, 0.7800],
+        [0.0700, 0.1500],
+        [0.1500, 0.1100],
+        [0.1400, 0.2900],
+        [0.0200, 0.0300],
+        [0.0400, 0.0700],
+        [0.0800, 0.0600]])
+        tensor([0.0656, 0.0656, 0.0656, 0.0656, 0.0656, 0.0656, 0.0200, 0.0400, 0.0656]) --> min 0.0656 con la primera columna de anchors
+        tensor([0.0562, 0.0562, 0.0562, 0.0562, 0.0562, 0.0562, 0.0300, 0.0562, 0.0562]) --> min 0.0562 con la 2ª columna de anchors
+intersection _> 0.0656* 0.0562 = 0.0037
+tensor([0.0037, 0.0037, 0.0037, 0.0037, 0.0037, 0.0037, 0.0006, 0.0022, 0.0037])
+union  -->0.0656 * 0.0562 + 0.28* 0.22 - 0.0037 --> 0.0616
+tensor([0.0616, 0.1824, 0.7020, 0.0105, 0.0165, 0.0406, 0.0037, 0.0042, 0.0048])
+return intersection / union
+0.0037/0.0616=0.06
+tensor([0.0599, 0.0202, 0.0053, 0.3516, 0.2237, 0.0909, 0.1625, 0.5305, 0.7690])
+fin iou anchors
+    """
+    #print(torch.min(boxes1[..., 0], boxes2[..., 0]))
+    #print(torch.min(boxes1[..., 1], boxes2[..., 1]))
     intersection = torch.min(boxes1[..., 0], boxes2[..., 0]) * torch.min(
         boxes1[..., 1], boxes2[..., 1]
     )
+    #print("intersection")
+    #print(intersection)
     union = (
         boxes1[..., 0] * boxes1[..., 1] + boxes2[..., 0] * boxes2[..., 1] - intersection
     )
+    #print("union")
+    #print(union)
+    #print("return")
+    #print (intersection / union)
     return intersection / union
 
   # Intersection over union
@@ -305,47 +348,6 @@ def intersection_over_union(boxes_preds, boxes_labels, box_format="midpoint"):
 
     return intersection / (box1_area + box2_area - intersection + 1e-6)
 
-# Non-max Supression
-
-def non_max_suppression(bboxes, iou_threshold, threshold, box_format="corners"):
-    """
-     Does Non Max Suppression given bboxes
-
-    Parameters:
-        bboxes (list): list of lists containing all bboxes with each bboxes
-        specified as [class_pred, prob_score, x1, y1, x2, y2]
-        iou_threshold (float): threshold where predicted bboxes is correct
-        threshold (float): threshold to remove predicted bboxes (independent of IoU)
-        box_format (str): "midpoint" or "corners" used to specify bboxes
-
-    Returns:
-        list: bboxes after performing NMS given a specific IoU threshold
-    """
-
-    assert type(bboxes) == list
-
-    bboxes = [box for box in bboxes if box[1] > threshold]
-    bboxes = sorted(bboxes, key=lambda x: x[1], reverse=True)
-    bboxes_after_nms = []
-
-    while bboxes:
-        chosen_box = bboxes.pop(0)
-
-        bboxes = [
-            box
-            for box in bboxes
-            if box[0] != chosen_box[0]
-            or intersection_over_union(
-                torch.tensor(chosen_box[2:]),
-                torch.tensor(box[2:]),
-                box_format=box_format,
-            )
-            < iou_threshold
-        ]
-
-        bboxes_after_nms.append(chosen_box)
-
-    return bboxes_after_nms
 
 
 ########################################################################
@@ -437,7 +439,7 @@ def loadlabels(dirnameLabels):
 
 import numpy as np
 import os
-import pandas as pd
+#import pandas as pd
 import torch
 
 from torch.utils.data import Dataset, DataLoader
@@ -464,11 +466,11 @@ class YOLODataset(Dataset):
     # Suppose, anchors[0] = [a,b,c], anchors[1] = [d,e,f], anchors[2] = [g,h,i] : Each set of anchors for each scale
     # List addition gives shape 3x3
     # Anchors per scale suggests that there are three different aspect ratios for each anchor position.
-    self.anchors = torch.tensor(anchors[0] + anchors[1] + anchors[2]) # For all 3 scales
+    self.anchors = torch.tensor(anchors[0] + anchors[1] + anchors[2]) # For all 3 scales 3 anchors--> 9 anchors
     self.num_anchors = self.anchors.shape[0]
     self.num_anchors_per_scale = self.num_anchors // 3
 
-    self.C = C
+    self.C = C # C=2 
 
     # If a cell has obj. then one anchor is responsible for outputting it,
     # one that's responsible is the one that has highest iou with ground truth box
@@ -484,18 +486,15 @@ class YOLODataset(Dataset):
     NameImage=NameImage[:len(NameImage)-4]
     ImageLabel=NameImage+".txt"
         
-    #label_path = os.path.join(self.label_dir, str(self.annotations.iloc[index, 0]))
-    #label_path = os.path.join(self.label_dir, str(self.annotations[index][0]))
+    
     label_path = os.path.join(self.label_dir, ImageLabel)
 
-        
-    #print(label_path)
-
     
-    bboxes = np.roll(np.loadtxt(fname=label_path, delimiter=" ", ndmin=2), 4, axis=1).tolist() # np.roll with shift 4 on axis 1: [class, x, y, w, h] --> [x, y, w, h, class]
+    bboxes = np.roll(np.loadtxt(fname=label_path, delimiter=" ", ndmin=2), 4, axis=1).tolist() # np.roll with shift 4
+                                                                                               # on axis 1:
+                                                                                               #[class, x, y, w, h] -->
+                                                                                               #[x, y, w, h, class]
 
-    #img_path = os.path.join(self.img_dir, self.annotations.iloc[index, 0])
-    #img_path = os.path.join(self.img_dir, self.annotations[index][0])
     Imagepath=NameImage+ ".jpg"
     img_path = os.path.join(self.img_dir, Imagepath)
     image = Image.open(img_path)
@@ -506,59 +505,73 @@ class YOLODataset(Dataset):
     if self.transform:
       image = self.transform(image)
 
-   
-
-    # image = transforms.ToTensor()(Image.open(img_path).convert('1'))
     
-    # https://discuss.pytorch.org/t/runtimeerror-given-groups-1-weight-64-3-3-3-so-expected-input-16-64-256-256-to-have-3-channels-but-got-64-channels-instead/12765/8  
-    #from torchvision import transforms
-    #convert_tensor = transforms.ToTensor()
-    #image = convert_tensor(image)
-    #image = image[:3]
+    # self.S=[20,40,60] 
     
-
+    #
+    
     targets = [torch.zeros((self.num_anchors // 3, S, S, 6)) for S in self.S] # 6 because objectness score, bounding box coordinates (x, y, w, h), class label
 
-    for box in bboxes:
+    """
+    targets[0] --> [3, 20, 20, 6]  
+    targets[1] --> [3, 40, 40, 6]
+    targets[2] --> [3, 80, 80, 6]
+    """
+
+    
+    # labels from train dataset labeled
+    # a image may have several labels
+    for box in bboxes:   
       """For each box in bboxes,
       we want to assign which anchor should be responsible and
       which cell should be responsible for all the three different scales prediction"""
+      #print("torch.tensor(box[2:4]")
+      #print(torch.tensor(box[2:4]))
+      #print("Fin torch.tensor(box[2:4]")
+      #print(self.anchors)
+
+      # It is about finding which of the anchors best adapts
+      # to the w h of the label, which is achieved with iou_width_height
       iou_anchors = iou_width_height(torch.tensor(box[2:4]), self.anchors) # IOU from height and width
+      
+      # returns the 9 indices of the 9 anchors ordered according to which one best fits the w h of the tag
       anchor_indices = iou_anchors.argsort(descending=True, dim=0) # Sorting sucht that the first is the best anchor
 
       box=box[:5]            
       #print(box)
       
       x, y, width, height, class_label = box
-      has_anchor = [False, False, False] # Make sure there is an anchor for each of three scales for each bounding box
+     
 
       for anchor_idx in anchor_indices:
         scale_idx = anchor_idx // self.num_anchors_per_scale # scale_idx is either 0,1,2: 0-->13x13, 1:-->26x26, 2:-->52x52
+        
         anchor_on_scale = anchor_idx % self.num_anchors_per_scale # In each scale, choosing the anchor thats either 0,1,2
 
         S = self.S[scale_idx]
         i, j = int(S*y), int(S*x) # x=0.5, S=13 --> int(6.5) = 6 | i=y cell, j=x cell
         anchor_taken = targets[scale_idx][anchor_on_scale, i, j, 0]
+        
+        # Modified
+        targets[scale_idx][anchor_on_scale, i, j, 0] = 1
+        x_cell, y_cell = S*x - j, S*y - i # 6.5 - 6 = 0.5 such that they are between [0,1]
+        width_cell, height_cell = (
+            width*S, # S=13, width=0.5, 6.5
+            height*S
+        )
 
-        if not anchor_taken and not has_anchor[scale_idx]:
-          targets[scale_idx][anchor_on_scale, i, j, 0] = 1
-          x_cell, y_cell = S*x - j, S*y - i # 6.5 - 6 = 0.5 such that they are between [0,1]
-          width_cell, height_cell = (
-              width*S, # S=13, width=0.5, 6.5
-              height*S
-          )
-
-          box_coordinates = torch.tensor([x_cell, y_cell, width_cell, height_cell])
-
-          targets[scale_idx][anchor_on_scale, i, j, 1:5] = box_coordinates
-          targets[scale_idx][anchor_on_scale, i, j, 5] = int(class_label)
-          has_anchor[scale_idx] = True
-
-        # Even if the same grid shares another anchor having iou>ignore_iou_thresh then,
-        elif not anchor_taken and iou_anchors[anchor_idx] > self.ignore_iou_thresh:
-          targets[scale_idx][anchor_on_scale, i, j, 0] = -1 # ignore this prediction
-
+        box_coordinates = torch.tensor([x_cell, y_cell, width_cell, height_cell])
+        
+        targets[scale_idx][anchor_on_scale, i, j, 1:5] = box_coordinates
+        #print("targets[scale_idx][anchor_on_scale, i, j, 1:5]")
+        #print(targets[scale_idx][anchor_on_scale, i, j, 1:5])
+        targets[scale_idx][anchor_on_scale, i, j, 5] = int(class_label)
+        
+        #break # GO OUT HERE, IT DOESN'T MAKE SENSE TO COMPARE WITH ALL THE INDEXES ONLY WITH THE FIRST ONE WHICH IS THE ONE THAT BEST FITS
+    
+    
     return image, tuple(targets)
+    
 
 # DataLoader
 
@@ -595,174 +608,7 @@ def get_loaders():
     )
 
     return train_loader, test_loader
-
-# Mean Average Precision
-
-def mean_average_precision(
-    pred_boxes, true_boxes, iou_threshold=0.5, box_format="midpoint", num_classes=4
-):
-    """
-    Video explanation of this function:
-    https://youtu.be/FppOzcDvaDI
-
-    This function calculates mean average precision (mAP)
-
-    Parameters:
-        pred_boxes (list): list of lists containing all bboxes with each bboxes
-        specified as [train_idx, class_prediction, prob_score, x1, y1, x2, y2]
-        true_boxes (list): Similar as pred_boxes except all the correct ones
-        iou_threshold (float): threshold where predicted bboxes is correct
-        box_format (str): "midpoint" or "corners" used to specify bboxes
-        num_classes (int): number of classes
-
-    Returns:
-        float: mAP value across all classes given a specific IoU threshold
-    """
-
-    # list storing all AP for respective classes
-    average_precisions = []
-
-    # used for numerical stability later on
-    epsilon = 1e-6
-
-    for c in range(num_classes):
-        detections = []
-        ground_truths = []
-
-        # Go through all predictions and targets,
-        # and only add the ones that belong to the
-        # current class c
-        for detection in pred_boxes:
-            if detection[1] == c:
-                detections.append(detection)
-
-        for true_box in true_boxes:
-            if true_box[1] == c:
-                ground_truths.append(true_box)
-
-        # find the amount of bboxes for each training example
-        # Counter here finds how many ground truth bboxes we get
-        # for each training example, so let's say img 0 has 3,
-        # img 1 has 5 then we will obtain a dictionary with:
-        # amount_bboxes = {0:3, 1:5}
-        amount_bboxes = Counter([gt[0] for gt in ground_truths])
-
-        # We then go through each key, val in this dictionary
-        # and convert to the following (w.r.t same example):
-        # ammount_bboxes = {0:torch.tensor[0,0,0], 1:torch.tensor[0,0,0,0,0]}
-        for key, val in amount_bboxes.items():
-            amount_bboxes[key] = torch.zeros(val)
-
-        # sort by box probabilities which is index 2
-        detections.sort(key=lambda x: x[2], reverse=True)
-        TP = torch.zeros((len(detections)))
-        FP = torch.zeros((len(detections)))
-        total_true_bboxes = len(ground_truths)
-
-        # If none exists for this class then we can safely skip
-        if total_true_bboxes == 0:
-            continue
-
-        for detection_idx, detection in enumerate(detections):
-            # Only take out the ground_truths that have the same
-            # training idx as detection
-            ground_truth_img = [
-                bbox for bbox in ground_truths if bbox[0] == detection[0]
-            ]
-
-            num_gts = len(ground_truth_img)
-            best_iou = 0
-
-            for idx, gt in enumerate(ground_truth_img):
-                iou = intersection_over_union(
-                    torch.tensor(detection[3:]),
-                    torch.tensor(gt[3:]),
-                    box_format=box_format,
-                )
-
-                if iou > best_iou:
-                    best_iou = iou
-                    best_gt_idx = idx
-
-            if best_iou > iou_threshold:
-                # only detect ground truth detection once
-                if amount_bboxes[detection[0]][best_gt_idx] == 0:
-                    # true positive and add this bounding box to seen
-                    TP[detection_idx] = 1
-                    amount_bboxes[detection[0]][best_gt_idx] = 1
-                else:
-                    FP[detection_idx] = 1
-
-            # if IOU is lower then the detection is a false positive
-            else:
-                FP[detection_idx] = 1
-
-        TP_cumsum = torch.cumsum(TP, dim=0)
-        FP_cumsum = torch.cumsum(FP, dim=0)
-        recalls = TP_cumsum / (total_true_bboxes + epsilon)
-        precisions = TP_cumsum / (TP_cumsum + FP_cumsum + epsilon)
-        precisions = torch.cat((torch.tensor([1]), precisions))
-        recalls = torch.cat((torch.tensor([0]), recalls))
-        # torch.trapz for numerical integration
-        average_precisions.append(torch.trapz(precisions, recalls))
-
-    return sum(average_precisions) / len(average_precisions)
-  
-def get_evaluation_bboxes(
-    loader,
-    model,
-    iou_threshold,
-    anchors,
-    threshold,
-    box_format="midpoint",
-    device="cuda" if torch.cuda.is_available() else "cpu",
-):
-    # make sure model is in eval before get bboxes
-    model.eval()
-    train_idx = 0
-    all_pred_boxes = []
-    all_true_boxes = []
-    for batch_idx, (x, labels) in enumerate(loader):
-        x = x.float().to(device)
-
-        with torch.no_grad():
-            predictions = model(x)
-
-        batch_size = x.shape[0]
-        bboxes = [[] for _ in range(batch_size)]
-        for i in range(3):
-            S = predictions[i].shape[2] # grid cell size for each predictions
-            anchor = torch.tensor([*anchors[i]]).to(device) * S # anchor for each grid, prediction type
-            boxes_scale_i = cells_to_bboxes( # get bboxes for each image in the batch
-                predictions[i], anchor, S=S, is_preds=True
-            )
-            for idx, (box) in enumerate(boxes_scale_i): # for each image, append the bbox to corr. bboxes[idx]
-                bboxes[idx] += box
-
-        # we just want one bbox for each label, not one for each scale
-        true_bboxes = cells_to_bboxes(
-            labels[2], anchor, S=S, is_preds=False
-        )
-
-        for idx in range(batch_size):
-            nms_boxes = non_max_suppression(
-                bboxes[idx],
-                iou_threshold=iou_threshold,
-                threshold=threshold,
-                box_format=box_format,
-            )
-
-            for nms_box in nms_boxes:
-                all_pred_boxes.append([train_idx] + nms_box)
-
-            for box in true_bboxes[idx]:
-                if box[1] > threshold:
-                    all_true_boxes.append([train_idx] + box)
-
-            train_idx += 1
-
-    model.train()
-    return all_pred_boxes, all_true_boxes
+   
 
 def cells_to_bboxes(predictions, anchors, S, is_preds=True):
     """
@@ -865,51 +711,6 @@ class YoloLoss(nn.Module):
         + self.lambda_class * class_loss
     )
 
-# Plot
-
-def plot_image(image, boxes):
-    """Plots predicted bounding boxes on the image"""
-    cmap = plt.get_cmap("tab20b")
-    class_labels = PASCAL_CLASSES
-    colors = [cmap(i) for i in np.linspace(0, 1, len(class_labels))]
-    im = np.array(image)
-    height, width, _ = im.shape
-
-    # Create figure and axes
-    fig, ax = plt.subplots(1)
-    # Display the image
-    ax.imshow(im)
-
-    # box[0] is x midpoint, box[2] is width
-    # box[1] is y midpoint, box[3] is height
-
-    # Create a Rectangle patch
-    for box in boxes:
-        assert len(box) == 6, "box should contain class pred, confidence, x, y, width, height"
-        class_pred = box[0]
-        box = box[2:]
-        upper_left_x = box[0] - box[2] / 2
-        upper_left_y = box[1] - box[3] / 2
-        rect = patches.Rectangle(
-            (upper_left_x * width, upper_left_y * height),
-            box[2] * width,
-            box[3] * height,
-            linewidth=2,
-            edgecolor=colors[int(class_pred)],
-            facecolor="none",
-        )
-        # Add the patch to the Axes
-        ax.add_patch(rect)
-        plt.text(
-            upper_left_x * width,
-            upper_left_y * height,
-            s=class_labels[int(class_pred)],
-            color="white",
-            verticalalignment="top",
-            bbox={"color": colors[int(class_pred)], "pad": 0},
-        )
-
-    plt.show()
 
 # TRAIN
 
@@ -924,19 +725,22 @@ loss_fn = YoloLoss()
 
 # Scaler
 scaler = torch.cuda.amp.GradScaler()
+import cv2
 
-
-print("LLEGA loader")
+print("Start loader")
 train_loader, test_loader = get_loaders()
-print("PASA loader")
+print("End loader")
+#print(test_loader)
+#https://discuss.pytorch.org/t/how-to-find-shape-and-columns-for-dataloader/34901/2
 
 # Anchors
 scaled_anchors = (
     torch.tensor(ANCHORS) * torch.tensor([13,26,52]).unsqueeze(1).unsqueeze(1).repeat(1,3,2)
+    #torch.tensor(ANCHORS) * torch.tensor([20,40,80]).unsqueeze(1).unsqueeze(1).repeat(1,3,2)# MUY MAL
 ).to(DEVICE)
 
 # Save test loader to a file
-torch.save(test_loader, '/kaggle/working/test_loader.pth')
+torch.save(test_loader, '/kaggle/working/PRUEBAtest_loader.pth')
 
 import torch.optim as optim
 
@@ -961,6 +765,7 @@ for epoch in tqdm(range(NUM_EPOCHS), desc="Epochs"):
     # context manager is used in PyTorch to automatically handle mixed-precision computations on CUDA-enabled GPUs
     with torch.cuda.amp.autocast():
       out = model(x)
+     
       loss = (
           loss_fn(out[0], y0, scaled_anchors[0])
           + loss_fn(out[1], y1, scaled_anchors[1])
@@ -989,7 +794,8 @@ for epoch in tqdm(range(NUM_EPOCHS), desc="Epochs"):
           f"Loss: {sum(losses)/len(losses):.4f}")
 
     # save the model after every 10 epoch
-    torch.save(model.state_dict(), f'/kaggle/working/Yolov3_epoch{epoch+1}.pth')
+    # RESPUESTA COPILOT Reducing the size of a .pth
+    torch.save(model.state_dict(), f'YoloFromScratch_epoch{epoch+1}.pth', _use_new_zipfile_serialization=False)
 
 import matplotlib.pyplot as plt
 epochs = range(1, len(history_loss)+1)
@@ -1001,79 +807,5 @@ plt.ylabel("Losses")
 plt.title("Training Loss")
 plt.show()
 
-# Inference
+# inference in a separate program
 
-model.eval()
-x, y = next(iter(test_loader))
-x = x.float().to(DEVICE)
-
-with torch.no_grad():
-    out = model(x)
-    bboxes = [[] for _ in range(x.shape[0])]
-    batch_size, A, S, _, _ = out[0].shape
-    anchor = torch.tensor([*ANCHORS[0]]).to(DEVICE) * S
-    boxes_scale_i = cells_to_bboxes(
-        out[0], anchor, S=S, is_preds=True
-    )
-    for idx, (box) in enumerate(boxes_scale_i):
-        bboxes[idx] += box
-
-    for i in range(batch_size):
-        nms_boxes = non_max_suppression(
-            bboxes[i], iou_threshold=0.5, threshold=0.6, box_format="midpoint",
-        )
-        plot_image(x[i].permute(1,2,0).detach().cpu(), nms_boxes)
-
-
-# Load the model
-model = YOLOv3(num_classes=NUM_CLASSES)
-"""
-model_path = "/kaggle/input/80-epoch-yolov3-model/Yolov3_epoch80.pth"
-state_dict = torch.load(model_path)
-model.load_state_dict(state_dict)
-"""
-model = model.to(DEVICE)
-
-# Testing
-losses = []
-
-with torch.no_grad():
-    model.eval()
-
-    for batch_idx, (x,y) in enumerate(test_loader):
-        x = x.to(DEVICE)
-        y0, y1, y2 = (y[0].to(DEVICE),
-                    y[1].to(DEVICE),
-                    y[2].to(DEVICE))
-
-        out = model(x)
-        loss = (
-            loss_fn(out[0], y0, scaled_anchors[0])
-            + loss_fn(out[1], y1, scaled_anchors[1])
-            + loss_fn(out[2], y2, scaled_anchors[2])
-        )
-
-        losses.append(loss.item())
-
-print(f"Loss: {sum(losses)/len(losses):.4f}")
-
-# Loss: 2.0037
-
-pred_boxes, true_boxes = get_evaluation_bboxes(
-                test_loader,
-                model,
-                iou_threshold=NMS_IOU_THRESH,
-                anchors=ANCHORS,
-                threshold=CONF_THRESHOLD,
-            )
-
-mapval = mean_average_precision(
-    pred_boxes,
-    true_boxes,
-    iou_threshold=MAP_IOU_THRESH,
-    box_format="midpoint",
-    num_classes=NUM_CLASSES,
-)
-print(f"MAP: {mapval.item()}")
-        
-# MAP: 0.8371940851211548
