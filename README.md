@@ -46,9 +46,17 @@ In the inference program, TESTyolovFromScratch_kaggle.py,  the non-max.suppressi
 
 In any case, by activating instructions 715 to 931 (removing the “”” from both lines) it can be verified by performing a detection with all the anchors and the non-max-suppression,
 
+A test with the first six images in test dataset, in red the predicted box, in green the labeled box
 
 
 ![Fig1](https://github.com/ablanco1950/Fracture.v1i_Reduced_YoloFromScratch/blob/main/Figure_1.png)
+![Fig2](https://github.com/ablanco1950/Fracture.v1i_Reduced_YoloFromScratch/blob/main/Figure_2.png)
+![Fig3](https://github.com/ablanco1950/Fracture.v1i_Reduced_YoloFromScratch/blob/main/Figure_3.png)
+![Fig4](https://github.com/ablanco1950/Fracture.v1i_Reduced_YoloFromScratch/blob/main/Figure_4.png)
+![Fig5](https://github.com/ablanco1950/Fracture.v1i_Reduced_YoloFromScratch/blob/main/Figure_5.png)
+![Fig6](https://github.com/ablanco1950/Fracture.v1i_Reduced_YoloFromScratch/blob/main/Figure_6.png)
+
+
 ===
 References and citations:
 
