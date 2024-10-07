@@ -48,6 +48,7 @@ In any case, by activating instructions 715 to 931 (removing the “”” from 
 
 https://github.com/ablanco1950/Fracture.v1i_Reduced_YoloFromScratch/blob/main/Figure_1.png
 
+![Figure 1]([https://github.com/ablanco1950/Fracture.v1i_Reduced_YoloFromScratch/blob/main/Figure_1.png])
 ===
 References and citations:
 
